@@ -2,7 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE TemplateHaskell            #-}
 
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
   -- for Data.Semigroup
@@ -85,13 +84,13 @@ module Graphics.Rendering.Postscript
 import           Control.Applicative
 import           Data.Monoid                (mconcat, mempty)
 #endif
-import           Control.Lens               (Lens', makeLenses, use, (%=), (.=))
+import           Control.Lens               (Lens', use, (%=), (.=))
 import           Control.Monad
 import           Control.Monad.State.Strict
 import qualified Data.ByteString.Builder    as B
 import           Data.Char                  (isPrint, ord)
+import           Data.Functor               ((<&>))
 import           Data.List                  (intersperse)
-import           Data.Semigroup             (Semigroup (..))
 import           Data.String                (fromString)
 import           Diagrams.Attributes        (Color (..), LineCap (..),
                                              LineJoin (..), SomeColor (..),
@@ -109,7 +108,18 @@ data CMYK = CMYK
     }
     deriving (Show, Eq)
 
-makeLenses ''CMYK
+{-# INLINE cyan #-}
+cyan :: Lens' CMYK Double
+cyan f (CMYK c m y k) = f c <&> \c' -> CMYK c' m y k
+{-# INLINE magenta #-}
+magenta :: Lens' CMYK Double
+magenta f (CMYK c m y k) = f m <&> \m' -> CMYK c m' y k
+{-# INLINE yellow #-}
+yellow :: Lens' CMYK Double
+yellow f (CMYK c m y k) = f y <&> \y' -> CMYK c m y' k
+{-# INLINE blacK #-}
+blacK :: Lens' CMYK Double
+blacK f (CMYK c m y k) = f k <&> \k' -> CMYK c m y k'
 
 data FontSlant = FontSlantNormal
                | FontSlantItalic
@@ -129,7 +139,21 @@ data PostscriptFont = PostscriptFont
     , _isLocal :: Bool
     } deriving (Eq, Show)
 
-makeLenses '' PostscriptFont
+{-# INLINE face #-}
+face :: Lens' PostscriptFont String
+face f (PostscriptFont a s w z i) = f a <&> \a' -> PostscriptFont a' s w z i
+{-# INLINE slant #-}
+slant :: Lens' PostscriptFont FontSlant
+slant f (PostscriptFont a s w z i) = f s <&> \s' -> PostscriptFont a s' w z i
+{-# INLINE weight #-}
+weight :: Lens' PostscriptFont FontWeight
+weight f (PostscriptFont a s w z i) = f w <&> \w' -> PostscriptFont a s w' z i
+{-# INLINE size #-}
+size :: Lens' PostscriptFont Double
+size f (PostscriptFont a s w z i) = f z <&> \z' -> PostscriptFont a s w z' i
+{-# INLINE isLocal #-}
+isLocal :: Lens' PostscriptFont Bool
+isLocal f (PostscriptFont a s w z i) = f i <&> \i' -> PostscriptFont a s w z i'
 
 defaultFont :: PostscriptFont
 defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1 True
@@ -142,7 +166,12 @@ data DrawState = DS
                  , _font     :: PostscriptFont
                  } deriving (Eq)
 
-makeLenses ''DrawState
+{-# INLINE fillRule #-}
+fillRule :: Lens' DrawState FillRule
+fillRule f (DS r t) = f r <&> flip DS t
+{-# INLINE font #-}
+font :: Lens' DrawState PostscriptFont
+font f (DS r t) = f t <&> DS r
 
 -- This reflects the defaults from the standard.
 emptyDS :: DrawState
@@ -153,7 +182,12 @@ data RenderState = RS
                    , _saved     :: ![DrawState] -- A stack of passed states pushed by save and poped with restore.
                    }
 
-makeLenses ''RenderState
+{-# INLINE drawState #-}
+drawState :: Lens' RenderState DrawState
+drawState f (RS d s) = f d <&> flip RS s
+{-# INLINE saved #-}
+saved :: Lens' RenderState [DrawState]
+saved f (RS d s) = f s <&> RS d
 
 emptyRS :: RenderState
 emptyRS = RS emptyDS []

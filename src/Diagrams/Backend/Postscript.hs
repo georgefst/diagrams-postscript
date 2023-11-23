@@ -6,7 +6,6 @@
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
@@ -103,7 +102,12 @@ data PostscriptState
                       --   path.
                     }
 
-$(makeLenses ''PostscriptState)
+{-# INLINE accumStyle #-}
+accumStyle :: Lens' PostscriptState (Style V2 Double)
+accumStyle f (PostscriptState a i) = f a <&> flip PostscriptState i
+{-# INLINE ignoreFill #-}
+ignoreFill :: Lens' PostscriptState Bool
+ignoreFill f (PostscriptState a i) = f i <&> PostscriptState a
 
 instance Default PostscriptState where
    def = PostscriptState
